@@ -35,9 +35,8 @@ Migrations: `uv run alembic upgrade head`.
 
 ## Cross-service flow
 
-tremor-api opens one work order per critical alert by calling `POST /work-orders` with
-`source_alert_id`. A second work order for the same alert returns 409;
-`GET /work-orders?source_alert_id=<uuid>` finds the linked work order.
+tremor-api opens one work order per critical alert via `source_alert_id`; a duplicate is a
+409, and `GET /work-orders?source_alert_id=<uuid>` finds it.
 
 ## CI
 
