@@ -33,6 +33,12 @@ Database settings come from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_P
 Endpoints: `/work-orders`, `/healthz`, `/readyz`, `/metrics`.
 Migrations: `uv run alembic upgrade head`.
 
+## Cross-service flow
+
+tremor-api opens one work order per critical alert by calling `POST /work-orders` with
+`source_alert_id`. A second work order for the same alert returns 409;
+`GET /work-orders?source_alert_id=<uuid>` finds the linked work order.
+
 ## CI
 
 Every push and pull request runs lint, tests and a Docker build. Pushes publish to ECR

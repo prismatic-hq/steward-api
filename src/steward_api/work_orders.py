@@ -2,11 +2,13 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from psycopg.errors import UniqueViolation
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from steward_api.db import get_session
-from steward_api.models import WorkOrder
+from steward_api.models import SOURCE_ALERT_CONSTRAINT, WorkOrder
 from steward_api.schemas import WorkOrderCreate, WorkOrderRead, WorkOrderUpdate
 
 router = APIRouter(prefix="/work-orders", tags=["work-orders"])
@@ -20,11 +22,26 @@ def _get_or_404(session: Session, work_order_id: uuid.UUID) -> WorkOrder:
     return work_order
 
 
+def _violated_constraint(error: IntegrityError) -> str | None:
+    if isinstance(error.orig, UniqueViolation):
+        return error.orig.diag.constraint_name
+    return None
+
+
 @router.post("", response_model=WorkOrderRead, status_code=status.HTTP_201_CREATED)
 def create_work_order(payload: WorkOrderCreate, session: SessionDep) -> WorkOrder:
     work_order = WorkOrder(**payload.model_dump())
     session.add(work_order)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        if _violated_constraint(error) != SOURCE_ALERT_CONSTRAINT:
+            raise
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"a work order for source alert {payload.source_alert_id} already exists",
+        ) from error
     session.refresh(work_order)
     return work_order
 
@@ -34,10 +51,13 @@ def list_work_orders(
     session: SessionDep,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    source_alert_id: uuid.UUID | None = None,
 ) -> list[WorkOrder]:
     query = (
         select(WorkOrder).order_by(WorkOrder.created_at, WorkOrder.id).limit(limit).offset(offset)
     )
+    if source_alert_id is not None:
+        query = query.where(WorkOrder.source_alert_id == source_alert_id)
     return list(session.scalars(query))
 
 

@@ -23,6 +23,7 @@ class WorkOrderCreate(BaseModel):
     description: str | None = None
     priority: Priority = Priority.MEDIUM
     assigned_crew: str | None = Field(default=None, max_length=64)
+    source_alert_id: uuid.UUID | None = None
 
 
 class WorkOrderUpdate(BaseModel):
@@ -43,5 +44,6 @@ class WorkOrderRead(BaseModel):
     priority: Priority
     status: WorkOrderStatus
     assigned_crew: str | None
+    source_alert_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
