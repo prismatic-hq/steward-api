@@ -33,6 +33,11 @@ Database settings come from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_P
 Endpoints: `/work-orders`, `/healthz`, `/readyz`, `/metrics`.
 Migrations: `uv run alembic upgrade head`.
 
+## Cross-service flow
+
+tremor-api opens one work order per critical alert via `source_alert_id`; a duplicate is a
+409, and `GET /work-orders?source_alert_id=<uuid>` finds it.
+
 ## CI
 
 Every push runs lint, tests and one multi-arch (amd64, arm64) image build in parallel jobs; pull

@@ -70,3 +70,38 @@ def test_delete_work_order_removes_it(client: TestClient) -> None:
 
     assert client.delete(f"/work-orders/{work_order['id']}").status_code == 204
     assert client.get(f"/work-orders/{work_order['id']}").status_code == 404
+
+
+def test_create_work_order_records_source_alert(client: TestClient) -> None:
+    source_alert_id = str(uuid.uuid4())
+
+    work_order = create_work_order(client, source_alert_id=source_alert_id)
+
+    assert work_order["source_alert_id"] == source_alert_id
+
+
+def test_create_work_order_without_source_alert_leaves_it_empty(client: TestClient) -> None:
+    assert create_work_order(client)["source_alert_id"] is None
+
+
+def test_create_work_order_rejects_duplicate_source_alert(client: TestClient) -> None:
+    source_alert_id = str(uuid.uuid4())
+    create_work_order(client, source_alert_id=source_alert_id)
+
+    response = client.post(
+        "/work-orders", json={**NEW_WORK_ORDER, "source_alert_id": source_alert_id}
+    )
+
+    assert response.status_code == 409
+    assert source_alert_id in response.json()["detail"]
+
+
+def test_list_work_orders_filters_by_source_alert(client: TestClient) -> None:
+    source_alert_id = str(uuid.uuid4())
+    create_work_order(client)
+    linked = create_work_order(client, source_alert_id=source_alert_id)
+
+    response = client.get("/work-orders", params={"source_alert_id": source_alert_id})
+
+    assert response.status_code == 200
+    assert [w["id"] for w in response.json()] == [linked["id"]]
